@@ -1,18 +1,5 @@
-"""
-CS 898BA: Image Analysis and Computer Vision
+""" CS 898BA: Image Analysis and Computer Vision
 Course Project: Diabetic Retinopathy Severity Grading from Retinal Fundus Images
-Author: Abdul Aleem Mohammed
-Wichita State University
+Name: Abdul Aleem Mohammed WSU ID: y729j763 """
 
-Initial "Hello World!" commit for the Project Pitch milestone.
-"""
-
-
-def main():
-    print("Hello World!")
-    print("CS 898BA Project: Diabetic Retinopathy Severity Grading")
-    print("Author: Abdul Aleem Mohammed")
-
-
-if __name__ == "__main__":
-    main()
+print("Hello World!")
