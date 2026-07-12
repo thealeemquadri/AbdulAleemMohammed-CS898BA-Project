@@ -20,7 +20,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from sklearn.model_selection import train_test_split
 
-from src.preprocessing.fundus import preprocess
+from src.preprocessing.fundus import preprocess, preprocess_rgb
 
 # ImageNet statistics: the EfficientNet backbone was pretrained with these,
 # so inputs must be normalized the same way for the transferred features to be valid.
@@ -77,7 +77,11 @@ class APTOSDataset(Dataset):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         # Domain image processing (the graded part of this project).
-        img = preprocess(img, size=self.size, **self.cfg)
+        cfg = dict(self.cfg)
+        if cfg.pop("rgb", False):
+            img = preprocess_rgb(img, size=self.size, **cfg)
+        else:
+            img = preprocess(img, size=self.size, **cfg)
 
         # Augmentation, applied only at training time and only on top of processing.
         if self.train:
@@ -129,7 +133,7 @@ def class_weights_tensor(train_df, device):
 
 
 def build_loaders(csv_path, img_dir, preprocess_cfg, size=300, batch_size=16,
-                  val_size=0.2, seed=42, balanced=True, num_workers=2):
+                  val_size=0.2, seed=42, balanced=True, num_workers=8):
     """Returns (train_loader, val_loader, train_df, val_df)."""
     train_df, val_df = stratified_split(csv_path, val_size=val_size, seed=seed)
 

@@ -179,6 +179,12 @@ def preprocess(
     if use_crop:
         img = circular_crop(img)
 
+    # Resize BEFORE the expensive operations. Running Ben Graham, CLAHE, and
+    # morphology at full sensor resolution (up to 3200x2100) wastes enormous CPU
+    # time when the network only ever sees a size x size input. Downscaling first
+    # is far faster and preserves the lesion features the model relies on.
+    img = cv2.resize(img, (size, size), interpolation=cv2.INTER_AREA)
+
     if use_ben_graham:
         img = ben_graham(img)
 
@@ -241,3 +247,75 @@ ABLATION_CONFIGS = {
         use_clahe=True, use_morphology=True, use_denoise=True,
     ),
 }
+
+
+# ======================================================================
+# PIVOT (added after the first ablation)
+# ----------------------------------------------------------------------
+# The first full_pipeline run UNDERPERFORMED the resize-only baseline
+# (QWK 0.8745 vs 0.8962). Diagnosis:
+#
+#   1. Discarding color. Green-channel-only throws away clinically real signal:
+#      hemorrhages are red, hard exudates are yellow.
+#   2. Breaking ImageNet compatibility. Stacking [gray, top-hat, bottom-hat]
+#      feeds sparse, near-binary morphology maps into channels the pretrained
+#      EfficientNet expects to contain natural RGB statistics. That destroys the
+#      transfer-learned filters, which are the entire justification for the
+#      architecture choice.
+#
+# Note that Ben Graham's original Kaggle-winning method PRESERVED color. This
+# pivot applies the same enhancements while keeping the image in RGB.
+# ======================================================================
+
+def clahe_color(img, clip_limit=3.0, tile=8):
+    """
+    Apply CLAHE to the LUMINANCE channel only, in LAB colour space.
+
+    Applying CLAHE per-RGB-channel independently shifts hue and creates colour
+    casts. Converting to LAB, equalising only L, and converting back enhances
+    local contrast while leaving the colour information (a, b) intact.
+    """
+    lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile, tile))
+    l = clahe.apply(l)
+    return cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2RGB)
+
+
+def preprocess_rgb(img, size=300, use_crop=True, use_ben_graham=True,
+                   use_clahe=True, use_denoise=True):
+    """
+    Colour-preserving processing pipeline.
+
+    Identical intent to preprocess(), but the output stays a natural 3-channel RGB
+    image, so the ImageNet-pretrained backbone still receives the input statistics
+    it was trained on.
+    """
+    if use_crop:
+        img = circular_crop(img)
+
+    img = cv2.resize(img, (size, size), interpolation=cv2.INTER_AREA)
+
+    if use_ben_graham:
+        img = ben_graham(img)
+
+    if use_clahe:
+        img = clahe_color(img)
+
+    if use_denoise:
+        img = cv2.medianBlur(img, 3)
+
+    return img.astype(np.uint8)
+
+
+# Configs that route through preprocess_rgb (flagged with rgb=True).
+RGB_CONFIGS = {
+    "rgb_ben_graham": dict(rgb=True, use_crop=True, use_ben_graham=True,
+                           use_clahe=False, use_denoise=True),
+    "rgb_clahe": dict(rgb=True, use_crop=True, use_ben_graham=False,
+                      use_clahe=True, use_denoise=True),
+    "rgb_full": dict(rgb=True, use_crop=True, use_ben_graham=True,
+                     use_clahe=True, use_denoise=True),
+}
+
+ABLATION_CONFIGS.update(RGB_CONFIGS)
