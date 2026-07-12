@@ -6,11 +6,17 @@ Abdul Aleem Mohammed, MS Computer Science, Wichita State University
 A computer vision pipeline that grades diabetic retinopathy severity from retinal fundus
 photographs into the five standard clinical grades (0 = No DR through 4 = Proliferative).
 
-The central engineering claim of this project is that **domain-specific image processing,
-not data augmentation, is what makes the model work.** The codebase is built to prove that
-claim with measurements rather than assert it: every processing stage is an independent
-toggle, so the same model can be trained with and without it and the difference in score
+The central engineering commitment of this project is that the effect of domain image
+processing must be **measured, not assumed.** Every processing stage is an independent toggle,
+so the identical model can be trained with and without it and the difference in score
 attributed directly to the processing.
+
+That discipline paid off in an unexpected way. The measured result is that the image
+processing pipeline **did not** beat a plain-resize baseline (QWK 0.8962 vs 0.8745). The
+diagnosis, the pivot that followed, and what it reveals about the interaction between heavy
+preprocessing and ImageNet transfer learning are documented in [Results](#results) and
+[Roadblocks and pivots](#roadblocks-and-pivots). A pipeline that was merely asserted to help
+would have hidden this entirely.
 
 ---
 
@@ -70,8 +76,8 @@ None of them are augmentation.
 | 5 | **Top-hat / bottom-hat morphology** | Top-hat isolates small bright features (hard exudates); bottom-hat isolates small dark features (hemorrhages, microaneurysms). The structuring element is sized larger than a lesion but smaller than anatomy, so anatomy is suppressed and lesions survive. |
 | 6 | **Median denoise + resize** | Removes salt-and-pepper sensor noise (amplified by CLAHE) while preserving edges better than a Gaussian would, then standardizes resolution. |
 
-**Channel construction.** Rather than feeding three redundant color channels, the pipeline
-builds an input whose channels carry complementary evidence:
+**Channel construction (and why it backfired).** The original design fed the network an
+input whose three channels carried complementary evidence rather than redundant colour:
 
 ```
 ch0 = contrast-enhanced retina  (structure)
@@ -79,8 +85,14 @@ ch1 = top-hat                   (bright lesions)
 ch2 = bottom-hat                (dark lesions)
 ```
 
-This hands the CNN pre-separated lesion evidence instead of forcing it to rediscover these
-filters from only a few thousand images.
+The intent was to hand the CNN pre-separated lesion evidence instead of making it rediscover
+these filters from a few thousand images. **In practice this hurt performance.** It discards
+colour (hemorrhages are red, exudates are yellow) and it feeds sparse, near-binary morphology
+maps into channels where an ImageNet-pretrained backbone expects natural RGB statistics,
+destroying the transferred features. See [Results](#results).
+
+A colour-preserving pipeline (`preprocess_rgb`) was added in response and recovered half the
+deficit, which confirmed the diagnosis.
 
 ---
 
@@ -92,9 +104,9 @@ Open `notebooks/colab_runner.ipynb` in Colab, set the runtime to GPU, and run th
 order. The notebook clones this repo, installs dependencies, downloads APTOS via the Kaggle
 API, trains both the baseline and the full pipeline, and generates all figures.
 
-You will need a Kaggle API token (`kaggle.json`: kaggle.com → Settings → API → Create New
-Token) and you must accept the APTOS competition rules on the competition page, or the
-download returns 403.
+You will need a Kaggle API token (kaggle.com -> Settings -> API -> Create New Token, which
+issues a `KGAT_...` string) and you must accept the APTOS competition rules by clicking
+**Join Competition** on the competition page, or the download returns 403.
 
 ### Option B: Local
 
@@ -151,11 +163,14 @@ python -m src.figures --results outputs/full_results.json --severity 3
 
 ### Available preprocessing configs
 
-`baseline_resize_only`, `full_pipeline`, `no_ben_graham`, `no_clahe`, `no_morphology`,
-`no_green_channel`
-
-The `no_*` configs are leave-one-out: they disable exactly one stage so its individual
-contribution can be attributed.
+| Config | What it does |
+| --- | --- |
+| `baseline_resize_only` | Control. Plain resize, no domain processing. |
+| `full_pipeline` | All six stages, grayscale + morphology channel stacking. |
+| `rgb_full` | Colour-preserving pivot: crop, Ben Graham, CLAHE (LAB luminance), denoise. |
+| `rgb_ben_graham` | Colour-preserving, Ben Graham only. |
+| `rgb_clahe` | Colour-preserving, CLAHE only. |
+| `no_ben_graham`, `no_clahe`, `no_morphology`, `no_green_channel` | Leave-one-out: disable exactly one stage so its individual contribution can be attributed. |
 
 ### Useful flags
 
