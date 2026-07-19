@@ -1,0 +1,97 @@
+{
+  "config": "baseline_resize_only",
+  "lr": 0.0003,
+  "size": 300,
+  "loss": "weighted_ce",
+  "dropout": 0.3,
+  "batch_size": 16,
+  "img_dir": "data/cache",
+  "history": [
+    {
+      "stage": "Learning rate",
+      "param": "lr",
+      "trials": [
+        {
+          "param": "lr",
+          "value": 0.0001,
+          "qwk": 0.8556268715681952,
+          "tag": "hpo_lr_00001"
+        },
+        {
+          "param": "lr",
+          "value": 0.0003,
+          "qwk": 0.8848318773286278,
+          "tag": "hpo_lr_00003"
+        },
+        {
+          "param": "lr",
+          "value": 0.001,
+          "qwk": 0.8671625918329698,
+          "tag": "hpo_lr_0001"
+        }
+      ],
+      "chosen": 0.0003,
+      "best_qwk": 0.8848318773286278
+    },
+    {
+      "stage": "Input resolution",
+      "param": "size",
+      "trials": [
+        {
+          "param": "size",
+          "value": 300,
+          "qwk": 0.8848318773286278,
+          "tag": "hpo_size_300"
+        },
+        {
+          "param": "size",
+          "value": 380,
+          "qwk": 0.8838342064663174,
+          "tag": "hpo_size_380"
+        }
+      ],
+      "chosen": 300,
+      "best_qwk": 0.8848318773286278
+    },
+    {
+      "stage": "Loss function",
+      "param": "loss",
+      "trials": [
+        {
+          "param": "loss",
+          "value": "weighted_ce",
+          "qwk": 0.8848318773286278,
+          "tag": "hpo_loss_weighted_ce"
+        },
+        {
+          "param": "loss",
+          "value": "focal",
+          "qwk": 0.8641773803750883,
+          "tag": "hpo_loss_focal"
+        }
+      ],
+      "chosen": "weighted_ce",
+      "best_qwk": 0.8848318773286278
+    },
+    {
+      "stage": "Dropout",
+      "param": "dropout",
+      "trials": [
+        {
+          "param": "dropout",
+          "value": 0.3,
+          "qwk": 0.8848318773286278,
+          "tag": "hpo_dropout_03"
+        },
+        {
+          "param": "dropout",
+          "value": 0.5,
+          "qwk": 0.8798296819331809,
+          "tag": "hpo_dropout_05"
+        }
+      ],
+      "chosen": 0.3,
+      "best_qwk": 0.8848318773286278
+    }
+  ]
+}
